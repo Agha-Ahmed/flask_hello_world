@@ -1,0 +1,39 @@
+name: Build & Push to ECR
+
+on: 
+  push:
+    branches: [main]
+
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4  
+
+      - name: Configure AWS credentials (OIDC)
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push image
+        env:
+          AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+          SHA: ${{ github.sha }}
+          BRANCH: ${{ github.ref_name }}
+
+        run: |
+          IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY"
+          TAG="${BRANCH}-${SHA}"
+          docker build -t "$IMAGE_URI:$TAG" .
+          docker push "$IMAGE_URI:$TAG"
+          echo "Pushed: $IMAGE_URI:$TAG
